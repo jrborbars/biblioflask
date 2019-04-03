@@ -32,9 +32,11 @@
                     <td>{{ dado.telefone }}</td>
                     <td>{{ dado.cpf }}</td>
                     <td>
-                        <a href="/usuarioedit/{{ dado.id }}">Editar</a>
+                        <a class="btn btn-warning" href="/usuarioedit/{{ dado.id }}">Editar</a>
+                        <a class="btn btn-info" href="/usuarioview/{{ dado.id }}">Visualizar</a>
+                        <a class="btn btn-danger" href="/usuariodel/{{ dado.id }}">Deletar</a>
               <!--      
-                    <a href="{{ url_for('books', genre='biography') }}">Books</a>
+                    <a href="">Books</a>
 
                     Output:
 

@@ -5,5 +5,5 @@
 
 {% block content %}
         <h2>Usuário</h2>
-                {{ wtf.quick_form( form=formtpl, action=url_for('edit_usuario_post') )}}
+                {{ wtf.quick_form( form=formtpl, action=url_for('edit_usuario_post', _id = _id) )}}
 {% endblock %}

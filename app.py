@@ -31,8 +31,8 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = '5fbc1554-8b78-4080-98b4-5035b8469fee-042c5b51-5024-4bd5-af69-d2ab00debd6b'
 # Gerar o secret-key com o UUID
 db = SQLAlchemy(app) # inicializa o ORM
-migrate = Migrate(app, db)
-bootstrap = Bootstrap(app)
+migrate = Migrate(app, db) # inicializa as migrations
+bootstrap = Bootstrap(app) # inicializa o Bootstrap
 
 class Usuario(db.Model):
     __tablename__ = 'usuarios'
@@ -52,6 +52,7 @@ class Usuario(db.Model):
         self.password = password
         self.telefone = telefone
         self.cpf = cpf
+
 
 class InsereUsuarioForm(FlaskForm):
     nome    = StringField('Nome',validators=[InputRequired(),Length(min=3)])
@@ -97,7 +98,7 @@ def add_usuario_post():
 def edit_usuario_get(_id):
     u = Usuario.query.filter_by(id=_id).first()
     form = InsereUsuarioForm(obj=u)
-    return render_template('edit_usuario.tpl', formtpl = form)
+    return render_template('edit_usuario.tpl', formtpl = form, _id = _id)
 
 
 @app.route('/usuarioedit/<_id>',methods=['POST'])
@@ -106,12 +107,30 @@ def edit_usuario_post(_id):
     u = Usuario.query.filter_by(id=_id).first()
     if form.validate_on_submit():
         form.populate_obj(u)
-        db.session.add(u)
         db.session.commit()
-        flash('Usuário inserido com sucesso.','success')
+        flash('Usuário alterado com sucesso.','success')
     else :
-        flash('Não inserido. Problemas nos dados.'+str(form.errors),'danger')
+        flash('Não alterado. Problemas nos dados.'+str(form.errors),'danger')
     return redirect('/usuarios')
+
+@app.route('/usuarioview/<_id>',methods=['GET'])
+def view_usuario_get(_id):
+    u = Usuario.query.filter_by(id=_id).first()
+    return render_template('view_usuario.tpl', d = u)
+
+@app.route('/usuariodel/<_id>',methods=['GET'])
+def del_usuario_get(_id):
+    u = Usuario.query.filter_by(id=_id).first()
+    return render_template('del_usuario.tpl', d = u)
+
+@app.route('/usuariodel/<_id>',methods=['POST'])
+def del_usuario_post(_id):
+    u = Usuario.query.filter_by(id=_id).first()
+    db.session.delete(u)
+    db.session.commit()
+    flash('Usuário excluído com sucesso.','success')
+    return redirect('/usuarios')
+
     
 if __name__ == "__main__":
     app.run()
