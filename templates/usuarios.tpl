@@ -1,8 +1,8 @@
 {% extends "base.tpl" %}
 {% block title %}Lista Usuários{% endblock %}
  
-{% block content %}
-        <p><a href="/usuarioadd">Cadastra Usuário</a></p>
+{% block content %} 
+        <p><a href="/usuarioadd" class="btn btn-info" >Cadastra Usuário</a></p>
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
             <ul class="flashes">
@@ -28,7 +28,7 @@
                     <td>{{ dado.id }}</td>
                     <td>{{ dado.nome }}</td>
                     <td>{{ dado.email }}</td>
-                    <td>{{ dado.password }}</td>
+                    <td>{{ dado.password_hash | truncate(11,True) }}</td>
                     <td>{{ dado.telefone }}</td>
                     <td>{{ dado.cpf }}</td>
                     <td>
