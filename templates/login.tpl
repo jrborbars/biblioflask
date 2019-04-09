@@ -23,7 +23,9 @@
   <link href="{{ url_for('static', filename='vendor/fontawesome-free/css/all.min.css') }}" rel="stylesheet" type="text/css">
 
   <!-- Custom styles for this template -->
-  <link href="{{ url_for('static', filename='css/freelancer.min.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/freelancer.min.css') }}" rel="stylesheet" />
+<link href="{{ url_for('static', filename='css/mystyle.css') }}" rel="stylesheet" />
+
 
 </head>
 
@@ -31,7 +33,9 @@
 
 <div class="container login-container">
             <div class="row" >
-                {% with messages = get_flashed_messages(with_categories=true) %}
+                <div class="col-md-6 login-form-1">
+                    <h3>Login </h3>
+ 		{% with messages = get_flashed_messages(with_categories=true) %}
                   {% if messages %}
                     <ul class="flashes">
                     {% for category, message in messages %}
@@ -40,8 +44,6 @@
                     </ul>
                   {% endif %}
                 {% endwith %}
-                <div class="col-md-6 login-form-1">
-                    <h3>Login </h3>
                     {{ wtf.quick_form( form = formtpl , action = url_for('login_post')) }}
                 </div>
             </div>

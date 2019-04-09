@@ -1,22 +1,3 @@
-# Acesso ao SGBD
-# Na disciplina INF8B, usamos o driver nativo do SQLITE3.
-# Na disciplina de INF9, vamos utilizar o ORM sqlalchemy, que é independente do banco de dados utilizado.
-# ORM quer dizer Object-Relational Mapper, Mapeador Objeto-Relacional.
-
-"""
-Bibliotecas instaladas
-==============
-
-flask
-flask-sqlalchemy    # Acesso ao SGBD
-flask-uploads       # Gerencia upload (imagens, arquivos)
-
-flask-bootstrap     # Ativa o bootstrap 
-flask-wtf           # Formulários
-flask-login     # Login
-
-"""
-
 from flask import Flask, render_template, request, flash, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -130,6 +111,29 @@ def page_not_found(error):
 @app.route('/')
 def index():
     return render_template('index.tpl')
+
+
+@app.route('/registro',methods=['GET'])
+def registro_get():
+    form = InsereUsuarioForm()
+    return render_template('registra.tpl', formtpl = form)
+
+
+@app.route('/registro',methods=['POST'])
+def registro_post():
+    form = InsereUsuarioForm(request.form)
+    if form.validate_on_submit():
+        novo_usuario = Usuario( nome = form.nome.data,
+                                email = form.email.data,
+                                password = form.password.data,
+                                telefone = form.telefone.data,
+                                cpf = form.cpf.data)
+        db.session.add(novo_usuario)
+        db.session.commit()
+        flash('Usuário inserido com sucesso.','success')
+    else :
+        flash('Não inserido. Problemas nos dados.'+str(form.errors),'danger')
+    return redirect('/registro')
 
 @app.route('/usuarios')
 @login_required
@@ -290,17 +294,17 @@ def login_post():
             if check_password_hash(usuario.password_hash,form.senha.data):
                 login_user(usuario)
                 return redirect(url_for('index'))
-                print('Login OK')
+                #print('Login OK')
             else:
                 flash('Usuário ou senha incorretos.', 'danger')
-                print('Login NOK1')
+                #print('Login NOK1')
         else:
             flash('Usuário ou senha incorretos.', 'danger')
-            print('Login NOK2')
+            #print('Login NOK2')
     else:
         msg ='Dados incorretos.'+str(form.errors) 
         flash(msg , 'danger')
-        print('Login NOK3')
+        #print('Login NOK3')
     return redirect(url_for('login_get'))
     
 @app.route('/logout',methods=['GET'])
@@ -310,36 +314,3 @@ def logout():
    
 if __name__ == "__main__":
     app.run()
-
-
-"""
-(aulasflask) [ricardo@archarrow aula1]$ python
-Python 3.7.2 (default, Jan 10 2019, 23:51:51) 
-[GCC 8.2.1 20181127] on linux
-Type "help", "copyright", "credits" or "license" for more information.
->>> from app2 import db
->>> from app2 import Usuario
->>> usu = Usuario(nome='Joao', email='joao@masca.com',password='123')
->>> usu
-<Usuario: Joao>
->>> usu.email
-'joao@masca.com'
->>> db.session.add(usu)
->>> db.session.commit()
-"""
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
