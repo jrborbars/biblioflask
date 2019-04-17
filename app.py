@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, flash, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import text, update, func
 from flask_migrate import Migrate
 from flask_wtf import FlaskForm
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -7,11 +8,12 @@ from wtforms import StringField, PasswordField, SubmitField, IntegerField
 from wtforms.validators import InputRequired, Email, Length,  ValidationError, EqualTo
 from flask_bootstrap import Bootstrap
 from flask_login import UserMixin, LoginManager, login_user, logout_user, login_required
-from datetime import timedelta, datetime
+from datetime import timedelta, date, time, datetime
 
 app  = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///meudb.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+#app.config['SQLALCHEMY_ECHO'] = True
 app.config['SECRET_KEY'] = '5fbc1554-8b78-4080-98b4-5035b8469fee-042c5b51-5024-4bd5-af69-d2ab00debd6b'
 # Gerar o secret-key com o UUID
 db = SQLAlchemy(app) # inicializa o ORM
@@ -44,6 +46,7 @@ class Usuario(db.Model, UserMixin):
     password_hash = db.Column(db.String(250))
     telefone = db.Column(db.String(50))
     cpf = db.Column(db.String(20))
+    usuario = db.relationship('Livro', secondary=emprestimo, backref=db.backref('emprestado', lazy='dynamic'))
 
     def __repr__(self):
         return '<Usuario: {}>'.format(self.nome)
@@ -64,17 +67,20 @@ class Livro(db.Model):
     editora = db.Column(db.String(150))
     sinopse = db.Column(db.String(2048))
     ano = db.Column(db.Integer)
+    status = db.Column(db.Integer,default=0)
+    
 
     def __repr__(self):
         return '<Livro: {} /{} >'.format(self.titulo, self.ano)
 
-    def __init__(self, autor,titulo,isbn,editora,sinopse,ano):
+    def __init__(self, autor,titulo,isbn,editora,sinopse,ano, status):
         self.autor      = autor
         self.titulo     = titulo
         self.isbn       = isbn
         self.editora    = editora
         self.sinopse    = sinopse
         self.ano        = ano
+        self.status     = status
 
 class InsereUsuarioForm(FlaskForm):
     nome      = StringField('Nome',validators=[InputRequired(),Length(min=3)])
@@ -134,6 +140,10 @@ def registro_post():
     else :
         flash('Não inserido. Problemas nos dados.'+str(form.errors),'danger')
     return redirect('/registro')
+
+########################################################################
+# USUÁRIOS
+########################################################################
 
 @app.route('/usuarios')
 @login_required
@@ -207,7 +217,9 @@ def del_usuario_post(_id):
     flash('Usuário excluído com sucesso.','success')
     return redirect('/usuarios')
 
-###################################
+########################################################################
+# LIVROS
+########################################################################
 
 @app.route('/livros')
 def lista_livros():
@@ -279,6 +291,107 @@ def del_livro_post(_id):
     db.session.commit()
     flash('Livro excluído com sucesso.','success')
     return redirect('/livros')
+
+########################################################################
+# EMPRESTIMOS
+# https://stackoverflow.com/questions/6044309/sqlalchemy-how-to-join-several-tables-by-one-query
+########################################################################
+
+@app.route('/emprestimolivro')
+
+def lista_empr_livros():
+    #dados_e = (db.session.query(emprestimo,Livro, func.max(emprestimo.id).label('empr').scalar()  ) 
+    #.filter(emprestimo.c.livro_id == Livro.id)
+    #.func.max(emprestimo.id).label('empr').scalar()              # Se o livro está na tabela de empreśtimos
+    #.filter(emprestimo.c.data_efetiva_devolucao == None)    # Não foi devolvido (condição suficiente)
+    #.filter(Livro.status == 1)                              # status -> emprestado
+    #.all())
+    sql = text("""select livros.id, livros.titulo, livros.autor, livros.editora, livros.isbn, livros.ano, livros.sinopse, livros.status, data_emprestimo,eid,data_efetiva_devolucao from livros
+    join (select data_emprestimo,id as eid,livro_id,data_efetiva_devolucao, max(data_emprestimo) as empr from emprestimos group by livro_id)
+    on livro_id = livros.id
+    group by (livros.id)""")
+    dados = db.engine.execute(sql).fetchall()
+    return render_template('emprestimo_livros.tpl', dadostpl = dados)  
+
+@app.route('/emprestimousuario/<_lid>')
+
+def lista_empr_usuarios(_lid):
+    dados = Usuario.query.all()
+    return render_template('emprestimo_usuarios.tpl', dadostpl = dados, livro_id=_lid)  
+
+
+@app.route('/emprestimoconfirma/<_uid>/<_lid>')
+
+def lista_empr_confirma(_uid,_lid):
+    usuario = Usuario.query.filter_by(id=_uid).first()
+    livro   = Livro.query.filter_by(id=_lid).first()
+    return render_template('emprestimo_confirma.tpl', usuario=usuario, livro=livro)
+
+
+@app.route('/emprestimoefetua', methods=['POST'])
+
+def lista_empr_efetua():
+    empr = True
+    try:
+        U = request.form.get('id_usuario')
+        L = request.form.get('id_livro')
+        usuario = Usuario.query.filter_by(id=U).first()
+        livro   = Livro.query.filter_by(id=L).first()
+        livro.emprestado.append(usuario)
+        livro.status = 1
+        db.session.add(livro)
+        db.session.commit()
+        flash('Emprestado para o usuario [{}] o livro [{}] do autor [{}].'.format(usuario.nome,livro.titulo,livro.autor),'success')
+    except Exception as e:
+        flash('NÃO emprestado para o usuario {} o livro {} do autor {}.'.format(usuario.nome,livro.titulo,livro.autor), 'danger')
+    return redirect(url_for('lista_empr_livros'))
+
+########################################################################
+# DEVOLUCOES
+########################################################################
+
+@app.route('/devolveemprestimo/<int:_eid>')
+
+def devolucao_confirma(_eid):
+    empr = db.session.query(emprestimo).filter_by(id=_eid).first()
+    usuario  = Usuario.query.filter_by(id=empr.usuario_id).first()
+    livro    = Livro.query.filter_by(id=empr.livro_id).first()
+    return render_template('devolucao_confirma.tpl', usuario=usuario, livro=livro, empr = empr, hoje = datetime.now()) 
+
+
+@app.route('/devolucaoefetua', methods=['POST'])
+
+def lista_dev_efetua():
+    E = request.form.get('empr')
+    U = request.form.get('id_usuario')
+    L = request.form.get('id_livro')
+    DEVOLUCAO = datetime.today()
+    print("DEV: ",DEVOLUCAO)
+    #app.config.update(
+    #    SQLALCHEMY_ECHO=True
+    #)
+    try:
+        livro = Livro.query.filter_by(id=L).first()
+        livro.status = 0
+        
+        devolve = db.session.query(emprestimo).filter_by(id=E)
+        print("devolve: ",devolve)
+        devolve.data_efetiva_devolucao = datetime.now()
+        db.session.commit()
+        db.session.add(livro)
+        #emprestimo.update().where( emprestimo.c.id == int(E) ).values( {"data_efetiva_devolucao" : DEVOLUCAO.strftime('%Y-%m-%d') } )
+        db.session.commit()
+        #print("DEVOL: ",devolve,"E: ",E, "DEV: ",DEVOLUCAO)
+        
+        #db.session.commit()
+        print("DEV: ",DEVOLUCAO)
+        flash('Empréstimo [{}] devolvido.'.format(E),'success')
+    except Exception as e:
+        flash('NÃO devolvido o empréstimo [{}] {}.'.format(E,str(e)), 'danger')
+    return redirect(url_for('lista_empr_livros'))
+
+    
+########################################################################
 
 @app.route('/login',methods=['GET'])
 def login_get():
